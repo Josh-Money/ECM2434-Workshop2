@@ -6,7 +6,7 @@ class AmountType(models.Model):
     name = models.CharField(max_length=100, primary_key=True)
 
     def __str__(self):
-        return self.name
+        return str(self.name)  # Explicit conversion to string
 
 
 class ItemType(models.Model):
@@ -16,27 +16,24 @@ class ItemType(models.Model):
     amount_type = models.ForeignKey(AmountType, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.name
+        return str(self.name)  # Explicit conversion to string
 
 
 class IndividualItem(models.Model):
     """Represents an individual item, such as a specific instance of a product."""
     id = models.AutoField(primary_key=True)
     expiration_date = models.DateField()
-    type = models.ForeignKey(ItemType, on_delete=models.CASCADE)
+    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE)  # Renamed for clarity
     amount = models.FloatField()
 
     def __str__(self):
-        return f"{self.type.name} (ID: {self.id})"
+        return f"{str(self.item_type.name)} (ID: {str(self.id)})"  # Ensuring string conversion
 
 
 class ShoppingList(models.Model):
     """Represents an item and its quantity in a shopping list."""
-    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE)
+    item_type = models.ForeignKey(ItemType, on_delete=models.CASCADE, primary_key=True)  # Primary Key & FK
     amount = models.FloatField()
 
-    class Meta:
-        unique_together = ('item_type', 'amount')  # Composite key
-
     def __str__(self):
-        return f"{self.item_type.name} - {self.amount}"
+        return f"{str(self.item_type.name)} - {str(self.amount)}"  # Ensuring string conversion
