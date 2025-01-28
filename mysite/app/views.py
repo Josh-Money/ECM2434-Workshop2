@@ -177,3 +177,231 @@ def new_type (request):
             'message': str(e)
         }, status=500)
 
+@require_http_methods(['DELETE'])
+def remove_type(request):
+    try:
+        data = json.loads(request.body)
+
+        if 'unique_barcode' not in data:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Missing required field: unique_barcode'
+            }, status=400)
+        
+        unique_barcode = data['unique_barcode']
+
+        if IndividualItem.objects.filter(item_type__unique_barcode=unique_barcode).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Cannot remove type because items of this type exist'
+            }, status=400)
+
+        ItemType.objects.filter(unique_barcode=unique_barcode).delete()
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Type removed successfully'
+        }, status=200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid JSON format'
+        }, status=400)
+    
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+    
+@require_http_methods(['PUT'])
+def add_to_shopping_list(request):
+    try:
+        data = json.loads(request.body)
+
+        required_fields = ['itemType', 'amount']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }, status=400)
+        
+        if not isinstance(data['amount'], int) or data['amount'] <= 0:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Amount must be a positive integer'
+            }, status=400)
+        
+        if not ItemType.objects.filter(unique_barcode=data['itemType']).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Item type does not exist'
+            }, status=400)
+        
+        item_type = ItemType.objects.get(unique_barcode=data['itemType'])
+        
+        shopping_list_item, created = ShoppingList.objects.get_or_create(
+            item_type=item_type,
+            defaults={'amount': data['amount']}
+        )
+        
+        if not created:
+            shopping_list_item.amount += data['amount']
+            shopping_list_item.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Item added to shopping list successfully'
+        }, status=200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid JSON format'
+        }, status=400)
+    
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@require_http_methods(['DELETE'])
+def remove_from_shopping_list(request):
+    try:
+        data = json.loads(request.body)
+
+        required_fields = ['itemType', 'amount']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }, status=400)
+        
+        if not isinstance(data['amount'], int) or data['amount'] <= 0:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Amount must be a positive integer'
+            }, status=400)
+        
+        if not ItemType.objects.filter(unique_barcode=data['itemType']).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Item type does not exist'
+            }, status=400)
+        
+        item_type = ItemType.objects.get(unique_barcode=data['itemType'])
+
+        try:
+            shopping_list_item = ShoppingList.objects.get(item_type=item_type)
+        except ShoppingList.DoesNotExist:
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Item not found in shopping list'
+            }, status=400)
+
+        shopping_list_item.amount -= data['amount']
+        
+        if shopping_list_item.amount <= 0:
+            shopping_list_item.delete()
+        else:
+            shopping_list_item.save()
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Item removed from shopping list successfully'
+        }, status=200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid JSON format'
+        }, status=400)
+    
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+    
+@require_http_methods(['PATCH'])
+def purchase_item(request):
+    try:
+        data = json.loads(request.body)
+        required_fields = ['itemType', 'amount', 'expirationDate']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Missing required field: {field}'
+                }, status=400)
+        
+        if not isinstance(data['amount'], int) or data['amount'] <= 0:
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Amount must be a positive integer'
+            }, status=400)
+        
+        try:
+            expiration_date = datetime.strptime(data['expirationDate'], '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid date format. Use YYYY-MM-DD'
+            }, status=400)
+        
+        if not ItemType.objects.filter(unique_barcode=data['itemType']).exists():
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Item type does not exist'
+            }, status=400)
+        
+        item_type = ItemType.objects.get(unique_barcode=data['itemType'])
+
+        try:
+            shopping_list_item = ShoppingList.objects.get(item_type=item_type)
+        except ShoppingList.DoesNotExist:
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Item not found in shopping list'
+            }, status=400)
+
+        if shopping_list_item.amount < data['amount']:
+            return JsonResponse({
+            'status': 'error',
+            'message': 'Not enough amount in shopping list'
+            }, status=400)
+
+        shopping_list_item.amount -= data['amount']
+        
+        if shopping_list_item.amount <= 0:
+            shopping_list_item.delete()
+        else:
+            shopping_list_item.save()
+
+        IndividualItem.objects.create(
+            item_type=item_type,
+            amount=data['amount'],
+            expiration_date=expiration_date
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Item purchased and added to fridge successfully'
+        }, status=200)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid JSON format'
+        }, status=400)
+    
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+        
