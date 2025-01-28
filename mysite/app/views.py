@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from datetime import datetime
-import models
+from .models import AmountType, ItemType, IndividualItem, ShoppingList
 import json 
 
 @require_http_methods(["PUT"])
@@ -61,7 +61,7 @@ def delete_item(request):
 
         item_id = data['ID']
 
-        models.IndividualItem.objects.filter(id=item_id).delete()
+        IndividualItem.objects.filter(id=item_id).delete()
 
         return JsonResponse({
             'status': 'success',
@@ -99,7 +99,7 @@ def delete_items(request):
                 'message': 'Missing required field: ID'
             }, status=400)
         
-        models.IndividualItem.objects.filter(id__in=item_ids).delete()
+        IndividualItem.objects.filter(id__in=item_ids).delete()
 
         return JsonResponse({
             'status': 'success',
@@ -149,16 +149,16 @@ def new_type (request):
                 'message': 'Amount type must be a non-empty string'
             }, status=400)
         
-        if not models.AmountType.objects.filter(name=data['amount_type']).exists():
+        if not AmountType.objects.filter(name=data['amount_type']).exists():
             return JsonResponse({
                 'status': 'error',
                 'message': 'Amount type does not exist'
             }, status=400)
         
-        models.ItemType.objects.create(
+        ItemType.objects.create(
             unique_barcode=data['unique_barcode'],
             name=data['name'],
-            amount_type=models.AmountType.objects.get(name=data['amount_type']))
+            amount_type=AmountType.objects.get(name=data['amount_type']))
         
         return JsonResponse({
             'status': 'success',
